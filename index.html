@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rotating QR Ticket</title>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      background: #f5f9ff;
+    }
+    .ticket {
+      background: white;
+      border-radius: 15px;
+      padding: 25px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+      text-align: center;
+      max-width: 90%;
+    }
+    #qrCanvas {
+      width: 280px;
+      height: 280px;
+      margin: 15px auto;
+      border: 8px solid white;
+      box-shadow: 0 0 15px rgba(0,0,0,0.1);
+    }
+    .timer {
+      font-size: 1.2rem;
+      color: #555;
+      margin: 15px 0;
+    }
+    h1 {
+      color: #2c3e50;
+      margin-bottom: 5px;
+    }
+    .note {
+      color: #7f8c8d;
+      font-size: 0.9rem;
+      max-width: 300px;
+      margin: 10px auto;
+    }
+  </style>
+</head>
+<body>
+  <div class="ticket">
+    <h1>Event Ticket</h1>
+    <p class="note">QR code refreshes every 60 seconds to prevent screenshot sharing</p>
+    <canvas id="qrCanvas"></canvas>
+    <div class="timer">Next refresh: <span id="countdown">60</span>s</div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('qrCanvas');
+    const countdownEl = document.getElementById('countdown');
+    let countdown = 60;
+    let currentToken = null;
+    
+    // Get server URL based on environment
+    const serverUrl = window.location.hostname === 'localhost' 
+      ? 'http://localhost:8888' 
+      : 'https://rotating-qr-tickets.netlify.app';
+
+    async function fetchToken() {
+      const response = await fetch(`${serverUrl}/.netlify/functions/token`);
+      return response.json();
+    }
+
+    function generateQR(url) {
+      QRCode.toCanvas(canvas, url, {
+        errorCorrectionLevel: 'H',
+        margin: 1,
+        scale: 8,
+        color: { dark: '#000', light: '#fff' }
+      });
+    }
+
+    async function refreshQR() {
+      try {
+        const tokenData = await fetchToken();
+        currentToken = tokenData.token;
+        generateQR(`${serverUrl}/.netlify/functions/validate?token=${currentToken}`);
+        countdown = 60;
+      } catch (e) {
+        console.error("Error refreshing QR:", e);
+      }
+    }
+
+    // Countdown timer
+    setInterval(() => {
+      countdown--;
+      countdownEl.textContent = countdown;
+      if(countdown <= 0) refreshQR();
+    }, 1000);
+
+    // Initial load
+    refreshQR();
+  </script>
+</body>
+</html>
